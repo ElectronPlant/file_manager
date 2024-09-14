@@ -1,7 +1,17 @@
+[lib]
+name = "file_manager"
+path = "src/lib.rs"
+
+[[example]]
+name = "minimal"
+path = "examples/minimal.rs"
+
 [package]
 name = "file_manager"
 version = "0.1.0"
 edition = "2021"
+publish = false
+authors = ["David Arnaiz"]
 
 [dependencies]
 rustyline = "14.0.0"

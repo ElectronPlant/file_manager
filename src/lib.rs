@@ -413,11 +413,12 @@ fn run_save_file_menu_with_errors(is_saving: bool) -> Result<String> {
 // Mains
 // ----------------------------------------
 
-/// Runs the file naming menu
-/// All errors are handled internally for simplicity.
-/// return option with the selected file name, None if error took place or it was canceled.
+/// Runs the file naming menu.
 ///
-/// arg is_saving: if true serves the file save menu; otherwise it serves the load file menu.
+/// All errors are handled internally for simplicity.
+///
+/// \param is_saving: if true serves the file save menu; otherwise it serves the load file menu.
+/// \return: option with the selected file name, None if error took place or it was canceled.
 ///
 pub fn run_file_naming_menu(is_saving: bool) -> Option<String> {
     match run_save_file_menu_with_errors(is_saving) {
@@ -429,6 +430,7 @@ pub fn run_file_naming_menu(is_saving: bool) -> Option<String> {
     }
 }
 
+/// Creates a test file to test the crate.
 pub fn create_file(file_path: String) {
     match fs::write(file_path, "This is just a test file, please delete.") {
         Ok(_) => println!("File created!"),

@@ -1,5 +1,5 @@
 //! Testing the file manager menu
-mod file_manager;
+use file_manager;
 
 fn main() {
     println!("            --------------------");

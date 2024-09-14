@@ -43,6 +43,22 @@ There are two way to create sequential names:
  name for the current file, and turn the existing name into sequential numbering, or to save
  the new file with this numbering.
 
+## Example
+
+To minimal example provides some example use case to test the file name selection menu.
+To run it:
+```
+cargo run --example minimal
+```
+
+## Import
+to use this crate:
+1. Download or clone the repository.
+2. On the target project run, replacing ```<path>``` with the path of this repository.
+```
+cargo add --path ../<path>/file_manager
+```
+
 
 # Acknowledgements
 
