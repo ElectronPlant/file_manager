@@ -1,5 +1,5 @@
 //! File Manager module.
-//! The File Manager module is responsible for saving and retriving the map information so that
+//! The File Manager module is responsible for saving and retrieving the map information so that
 //! they can be reused between multiple runs.
 //!
 //! Version: 0.0 - first version
@@ -8,9 +8,8 @@
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
-use std::{u16, result, fmt};
+use std::{result, fmt};
 
-use rustyline;
 use rustyline::completion::Candidate;
 use rustyline::error::ReadlineError;
 
@@ -21,11 +20,10 @@ use thiserror::Error;
 // --------------------------------------------------------------------------------
 
 /// The file is executed from where the cargo run is called.
-/// This will asume that the cargo run is called from the main project dir.
-const DEFAULT_DIRECTOTY: &str = "./test_dir/";
+/// This will assume that the cargo run is called from the main project dir.
+const DEFAULT_DIRECTORY: &str = "./test_dir/";
 
 const DEFAULT_MAP_TYPE: &str = "map"; // Do not add the period for the extension.
-const DEFAULT_MAP_NAME: &str = "default_name";
 const DIR_CHANGE_STR: &str = "dir";
 
 const SEQUENTIAL_FILE_PADDING_LEN: usize = 3;
@@ -41,8 +39,8 @@ enum Error {
     Io(#[from] io::Error),
     Cmd(#[from] rustyline::error::ReadlineError),
 
-    /// Manualy terminated, not really an error but useful to state no file has been selected.
-    ManualyTerminated,
+    /// Manually terminated, not really an error but useful to state no file has been selected.
+    ManuallyTerminated,
 
     /// Need new name, not really an error but useful to state that the name menu needs to re-run.
     NeedNewName,
@@ -54,7 +52,6 @@ enum Error {
     InvalidNameTooLong,
     InvalidSequentialName,
     UnknownFileType,
-    ParsingError,
 }
 
 impl fmt::Display for Error {
@@ -62,7 +59,7 @@ impl fmt::Display for Error {
         match *self {
             Error::Io(ref err) => err.fmt(f),
             Error::Cmd(ref err) => err.fmt(f),
-            Error::ManualyTerminated =>
+            Error::ManuallyTerminated =>
                 write!(f, "FILE MNG :: File selection has been manually terminated with CTRL+D"),
             Error::NeedNewName =>
                 write!(f, "FILE MNG :: File selection needs to be re-run."),
@@ -75,10 +72,8 @@ impl fmt::Display for Error {
                 write!(f, "FILE MNG :: Error sequential name count too larger than {}",
                        SEQUENTIAL_FILE_MAX_NUMBER),
             Error::UnknownFileType =>
-                write!(f, "FILE MNG :: Error unsuported file type, use {}",
+                write!(f, "FILE MNG :: Error unsupported file type, use {}",
                        DEFAULT_MAP_TYPE),
-            Error::ParsingError =>
-                write!(f, "FILE MNG :: Error parsing name."),
         }
     }
 }
@@ -97,7 +92,7 @@ fn handle_path(path: &str) -> Result<PathBuf> {
     let path_name = Path::new(path);
     if !path_name.exists() {
         fs::create_dir_all(path_name)?;
-        if let Some(abs_path) = fs::canonicalize(&path_name)?.to_str() {
+        if let Some(abs_path) = fs::canonicalize(path_name)?.to_str() {
             println!("FILE MNG :: Map dir not found, creating <{}>.", abs_path);
         } else {
             println!("FILE MNG :: Unable to show created file.");
@@ -106,15 +101,8 @@ fn handle_path(path: &str) -> Result<PathBuf> {
     Ok(path_name.to_path_buf())
 }
 
-fn get_file_list(path: &PathBuf) -> Result<Vec<String>> {
-    for file in fs::read_dir(&path)?
-        .filter_map(|entry| entry.ok())
-        .filter(|entry| entry.path().is_file())
-    {
-        let file_name = file.path().file_name().unwrap().to_string_lossy().into_owned();
-    }
-
-    Ok(fs::read_dir(&path)?
+fn get_file_list(path: &Path) -> Result<Vec<String>> {
+    Ok(fs::read_dir(path)?
         .filter_map(|entry| entry.ok())
         .filter(|entry| entry.path().is_file())
         .filter(|entry| entry.path().extension().unwrap_or_default().to_str()
@@ -124,14 +112,14 @@ fn get_file_list(path: &PathBuf) -> Result<Vec<String>> {
         .collect())
 }
 
-/// Lista files in the selected directory.
+/// List files in the selected directory.
 /// Note that this function assumes that the directory has been selected and already created.
 /// List of notes:
 ///     1. counter width should match the number of numbers of MAX_SEQUENTIAL_FILE_NUMBER.
 ///     2. file_name width should match the maximum allowed size defined by MAX_FILE_NAME_CHARS.
 ///
-fn print_dir_files(files: &Vec<String>) {
-    if files.len() == 0 {
+fn print_dir_files(files: &[String]) {
+    if files.is_empty() {
         println!("    (empty directory)");
     }
     for (cnt, file) in files.iter().enumerate() {
@@ -140,11 +128,11 @@ fn print_dir_files(files: &Vec<String>) {
         }
         print!("{: >3}: {: <30}", cnt, file); // Notes 1, 2
         if (cnt + 1) % PRINT_COLUMNS == 0 {
-            println!("");
+            println!();
         }
     }
     if files.len() % PRINT_COLUMNS != 0 {
-        println!("");
+        println!();
     }
 }
 
@@ -160,7 +148,7 @@ fn get_sequential_name_from_count(base_name: &str, cnt: u16) -> String {
 
 /// Searches the files to get the next sequential name.
 /// if next is true the next unused name is returned; otherwise the last used name.
-fn get_sequential_name(files:&Vec<String>, base_name:&str, next:bool) -> Result<String> {
+fn get_sequential_name(files:&[String], base_name:&str, next:bool) -> Result<String> {
     let mut cnt_max: u16 = 0;
     let mut found: bool = false;
     for name in files
@@ -201,14 +189,14 @@ fn is_sequential_name(file_name: String) -> String {
             return file_name[0..(last_index)].to_string();
         }
     }
-    return file_name;
+    file_name
 }
 
 // ----------------------------------------
 // Menus
 // ----------------------------------------
 
-fn print_menu_options(path_name: &str, files: &Vec<String>) {
+fn print_menu_options(path_name: &str, files: &[String]) {
     println!("Input the name of the file to be saved:");
     println!(" - Input a number to preselect the file.");
     println!(" - Input 'dir' to change directory (TODO).");
@@ -216,7 +204,7 @@ fn print_menu_options(path_name: &str, files: &Vec<String>) {
     println!(" - Press CTRL+D to exit (may need to press CTRL+C first).");
     println!(" - A name ending in _ (e.g. test_), will be transformed into a sequential name.");
     println!("Current dir: {}", path_name.to_owned());
-    print_dir_files(&files);
+    print_dir_files(files);
 }
 
 fn check_file_name_len(name: &str) -> Result<()> {
@@ -228,14 +216,14 @@ fn check_file_name_len(name: &str) -> Result<()> {
 }
 
 /// Checks if file exists
-fn check_file_exists(path: &PathBuf, file_name: String, files: &Vec<String>, is_saving:bool) -> Result<String> {
+fn check_file_exists(path: &Path, file_name: String, files: &[String], is_saving:bool) -> Result<String> {
     let full_path: PathBuf = path.join(&file_name);
     if full_path.is_file() && is_saving {
         println!("FILE MNG :: file {} already exits while saving.", full_path.to_string_lossy());
         println!("Input:");
         println!("  'r' to replace existing file.");
         println!("  'm' to turn existing file into sequential naming.");
-        println!("  'c' to turn new file into sequencial naming.");
+        println!("  'c' to turn new file into sequential naming.");
         println!("  'n' to select a new name.");
         println!("  'd' to delete the specified file.");
 
@@ -253,7 +241,7 @@ fn check_file_exists(path: &PathBuf, file_name: String, files: &Vec<String>, is_
                         return Ok(file_name);
                     },
                     "m" => { // Move old file.
-                        let (base_name, ext) = file_name.split_once('.')
+                        let (base_name, _) = file_name.split_once('.')
                             .ok_or(Error::UnknownFileType)?;
                         let base_name = format!("{}{}", base_name, '_');
                         let new_name: String = get_sequential_name(files, &base_name, true)?;
@@ -263,7 +251,7 @@ fn check_file_exists(path: &PathBuf, file_name: String, files: &Vec<String>, is_
                         return Ok(file_name);
                     },
                     "c" => { // rename new file.
-                        let (base_name, ext) = file_name.split_once('.')
+                        let (base_name, _) = file_name.split_once('.')
                             .ok_or(Error::UnknownFileType)?;
                         let base_name = format!("{}{}", base_name, '_');
                         let new_name: String = get_sequential_name(files, &base_name, true)?;
@@ -283,10 +271,10 @@ fn check_file_exists(path: &PathBuf, file_name: String, files: &Vec<String>, is_
                     return Err(Error::NeedNewName);
                 },
                 Err(ReadlineError::Eof) => { // CTRL+D
-                    return Err(Error::ManualyTerminated);
+                    return Err(Error::ManuallyTerminated);
                 },
                 Err(err) => {
-                    println!("FILE MNG :: ERROR :: faile due to {err}");
+                    println!("FILE MNG :: ERROR :: failed due to {err}");
                 }
             }
         }
@@ -297,7 +285,7 @@ fn check_file_exists(path: &PathBuf, file_name: String, files: &Vec<String>, is_
     Ok(file_name)
 }
 
-fn parse_menu_file(line: &str, files: &Vec<String>, is_saving:bool) -> Result<(String, bool)> {
+fn parse_menu_file(line: &str, files: &[String], is_saving:bool) -> Result<(String, bool)> {
     let mut ret: String = String::from("");
     let mut running: bool = true;
 
@@ -349,12 +337,11 @@ fn parse_menu_file(line: &str, files: &Vec<String>, is_saving:bool) -> Result<(S
 ///         - If the selected name already exists it will run an overwrite/fs::rename menu.
 ///
 fn file_name_menu(path: PathBuf, files: &Vec<String>, is_saving:bool) -> Result<String> {
-    // `()` can be used when no completer is required
     let mut rl = rustyline::DefaultEditor::new()?;
     let mut init_s: String = String::from("");
     let mut running: bool = true;
 
-    print_menu_options(&path.to_string_lossy().into_owned(), files);
+    print_menu_options(&path.to_string_lossy(), files);
 
     for file in files {
         rl.add_history_entry(file)?;
@@ -386,7 +373,7 @@ fn file_name_menu(path: PathBuf, files: &Vec<String>, is_saving:bool) -> Result<
                         Err(Error::NeedNewName) => {
                             running = true;
                             println!("Please select a new file name.");
-                            print_menu_options(&path.to_string_lossy().into_owned(), files);
+                            print_menu_options(&path.to_string_lossy(), files);
                             "".to_string()
                         },
                         Err(e) => return Err(e),
@@ -397,10 +384,10 @@ fn file_name_menu(path: PathBuf, files: &Vec<String>, is_saving:bool) -> Result<
                 init_s.clear();
             },
             Err(ReadlineError::Eof) => { // CTRL+D
-                return Err(Error::ManualyTerminated);
+                return Err(Error::ManuallyTerminated);
             },
             Err(err) => {
-                println!("FILE MNG :: ERROR :: faile due to {err}");
+                println!("FILE MNG :: ERROR :: failed due to {err}");
             }
         }
     }
@@ -411,12 +398,12 @@ fn file_name_menu(path: PathBuf, files: &Vec<String>, is_saving:bool) -> Result<
 /// If is_saving is true, it will run the file saving option; otherwise it will run the load
 /// file option.
 ///
-fn run_save_file_memu_with_errors(is_saving: bool) -> Result<String> {
-    let path_name = DEFAULT_DIRECTOTY;
+fn run_save_file_menu_with_errors(is_saving: bool) -> Result<String> {
+    let path_name = DEFAULT_DIRECTORY;
     let path: PathBuf = handle_path(path_name)?;
     let file_list: Vec<String> = get_file_list(&path)?;
 
-    let file_name: String = file_name_menu(path, &file_list, true)?;
+    let file_name: String = file_name_menu(path, &file_list, is_saving)?;
     let full_path: String = format!("{}{}", path_name, file_name);
 
     Ok(full_path)
@@ -432,8 +419,8 @@ fn run_save_file_memu_with_errors(is_saving: bool) -> Result<String> {
 ///
 /// arg is_saving: if true serves the file save menu; otherwise it serves the load file menu.
 ///
-pub fn run_file_naming_memu(is_saving: bool) -> Option<String> {
-    match run_save_file_memu_with_errors(is_saving) {
+pub fn run_file_naming_menu(is_saving: bool) -> Option<String> {
+    match run_save_file_menu_with_errors(is_saving) {
         Err(e) => {
             println!("{e}");
             None
