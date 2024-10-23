@@ -8,7 +8,7 @@ path = "examples/minimal.rs"
 
 [package]
 name = "file_manager"
-version = "0.1.0"
+version = "1.0.0"
 edition = "2021"
 publish = false
 authors = ["David Arnaiz"]
