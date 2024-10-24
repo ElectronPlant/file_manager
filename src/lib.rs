@@ -86,29 +86,6 @@ type Result<T> = result::Result<T, Error>;
 // Path handling
 // ----------------------------------------
 
-/// Get sub directories in the specified path.
-fn get_dir_list(path: &Path) -> Result<Vec<String>> {
-    if path.is_dir() {
-        Ok(fs::read_dir(path)?
-            .filter_map(|entry| entry.ok())
-            .filter(|entry| entry.path().is_dir())
-            .filter_map(|entry| match entry.path().strip_prefix(path) {
-                Ok(p) => Some(p.to_path_buf()),
-                Err(_) => None
-            })
-            .map(|entry| entry.to_string_lossy().into_owned())
-            .map(|entry|
-                if entry.chars().last().unwrap_or_default() == '/' {
-                    entry
-                } else {
-                    format!("{}{}", entry, "/")
-                } )
-            .collect())
-    } else {
-        Ok(Vec::new())
-    }
-}
-
 /// Gets a list of files in the specified path.
 fn get_file_list(path: &Path) -> Result<Vec<String>> {
     if path.is_dir() {
@@ -247,7 +224,7 @@ fn init_default_paths(paths: Option<Vec<String>>) -> (String, Vec<String>) {
 // Menus
 // ----------------------------------------
 
-fn print_menu_options(current_dir: &str, paths: &[String], sub_paths: &[String], files: &[String]) {
+fn print_menu_options(current_dir: &str, paths: &[String], files: &[String]) {
     println!("Input the name of the file to be saved:");
     println!(" - Input a number to preselect a directory or a file.");
     println!(
@@ -259,10 +236,8 @@ fn print_menu_options(current_dir: &str, paths: &[String], sub_paths: &[String],
     println!("----\nDefault directories (relative):");
     print_paths(paths, 0);
     println!("----\nCurrent dir: {}", current_dir);
-    println!("----\nSub dirs:");
-    print_paths(sub_paths, paths.len());
     println!("----\nFiles:");
-    print_dir_files(files, sub_paths.len() + paths.len());
+    print_dir_files(files, paths.len());
 }
 
 fn check_file_name_len(name: &str) -> Result<()> {
@@ -408,7 +383,7 @@ fn check_if_path_or_file(line: &str) -> (Option<String>, Option<String>) {
 /// Outputs:
 ///     - Path option: if none the dir has not been changed.
 ///     - Path option: if none there is no valid file name.
-fn parse_menu_file(current_path: &str, line: &str,  dirs: &[String], sub_paths: &[String], files: &[String]) -> Result<(Option<String>, Option<String>)> {
+fn parse_menu_file(line: &str,  dirs: &[String], files: &[String]) -> Result<(Option<String>, Option<String>)> {
     let path: Option<String>;
     let file_name: Option<String>;
 
@@ -426,13 +401,8 @@ fn parse_menu_file(current_path: &str, line: &str,  dirs: &[String], sub_paths: 
                 path = Some(format!("{}{}", dirs[num], "/"));
             }
             file_name = None;
-        } else if num - dirs.len() < sub_paths.len() {
+        } else if num - dirs.len() < files.len() {
             let n = num - dirs.len();
-            let p = sub_paths[n].to_string();
-            path = Some(format!("{}{}", current_path, p));
-            file_name = None;
-        } else if num - dirs.len() - sub_paths.len() < files.len() {
-            let n = num - dirs.len() - sub_paths.len();
             path = None;
             file_name = Some(is_sequential_name(files[n].to_string()));
         } else {
@@ -465,8 +435,7 @@ fn file_name_menu(current_path: String, paths: &[String], is_saving:bool) -> Res
     'dir_loop: loop {
         let path_name = Path::new(&current_path);
         let file_list: Vec<String> = get_file_list(path_name)?;
-        let sub_paths: Vec<String> = get_dir_list(path_name)?;
-        print_menu_options(&current_path, paths, &sub_paths, &file_list);
+        print_menu_options(&current_path, paths, &file_list);
 
         rl.clear_history()?;
         for f in file_list.iter().rev() {
@@ -490,7 +459,7 @@ fn file_name_menu(current_path: String, paths: &[String], is_saving:bool) -> Res
                     rl.add_history_entry(&line)?;
 
                     let (path, file): (Option<String>, Option<String>) =
-                        parse_menu_file( &current_path, l, paths, &sub_paths, &file_list)?;
+                        parse_menu_file(l, paths, &file_list)?;
 
                     let path_updated: bool;
                     let path = match path {
