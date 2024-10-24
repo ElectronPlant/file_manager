@@ -12,11 +12,11 @@ This is an ongoing work, so not all features are not yet implemented.
 There is only one function call required to launch the file name selection menu:
 
 ```
-pub fn run_file_naming_menu(is_saving: bool) -> Option<String>
+pub fn run_file_naming_menu(is_saving: bool, default_dirs: Option<Vec<String>>) -> Option<String>
 ```
-
-The argument of the function is used to specify if we are creating (if set to true), or loading
-(if set to false) a file.
+With the following arguments:
+* ```is_saving```: is used to specify if we are creating (if set to true), or loading (if set to false) a file.
+* ```default_dirs```: If ```Some``` is used to specify the default dirs for easy access. If None, the default dir is used (i.e. ```./test_dir/```).
 
 This function returns an Option.
  * None represent that an error has taken place, so the file name selection could not be completed.
